@@ -1,0 +1,6 @@
+{
+  "name": "BudgetMate",
+  "description": "Roommate Expense Manager & Smart Budget Planner with fair splitting, settlements, analytics, and smart insights",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
