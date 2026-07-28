@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Expense, MonthlyBudget, SettlementSummary, UserProfile } from '../../types';
-import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, ChevronRight, Calculator, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, ChevronRight, Calculator, Calendar, Image as ImageIcon, Check } from 'lucide-react';
 import { ReceiptModal } from '../expenses/ReceiptModal';
 import { AliveGraph } from './AliveGraph';
 
@@ -43,8 +43,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateTab,
   onEditExpense
 }) => {
-  const [selectedFilter, setSelectedFilter] = useState<'this_month' | 'today' | 'all'>('this_month');
+  const [selectedFilter, setSelectedFilter] = useState<'this_month' | 'this_week' | 'specific_day'>('this_month');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewReceiptExpense, setPreviewReceiptExpense] = useState<Expense | null>(null);
 
@@ -70,7 +71,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayExpenses = expenses.filter(e => e.date === todayStr);
   const todayTotal = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  // Filtered expenses list
+  // Filtered expenses list based on selected filter option
   const filteredExpenses = expenses.filter(e => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -79,8 +80,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const matchUsage = (e.specificUsage || '').toLowerCase().includes(q);
       if (!matchTitle && !matchCat && !matchUsage) return false;
     }
-    if (selectedDate) return e.date === selectedDate;
-    if (selectedFilter === 'today') return e.date === todayStr;
+
+    if (selectedFilter === 'specific_day') {
+      const targetDate = selectedDate || todayStr;
+      return e.date === targetDate;
+    }
+
+    if (selectedFilter === 'this_week') {
+      if (!e.date) return false;
+      const expDate = new Date(e.date + 'T00:00:00');
+      const nowObj = new Date();
+      const diffTime = nowObj.getTime() - expDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays < 7;
+    }
+
+    if (selectedFilter === 'this_month') {
+      if (!e.date) return false;
+      const expDate = new Date(e.date + 'T00:00:00');
+      const nowObj = new Date();
+      return expDate.getMonth() === nowObj.getMonth() && expDate.getFullYear() === nowObj.getFullYear();
+    }
+
     return true;
   });
 
@@ -151,27 +172,88 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 2. Main Minimal Total Spending View with Apple Health Style Alive Graph */}
       <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
         
-        {/* Top Controls Bar: Dropdown pill + Search input */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="relative">
-            <button
-              onClick={() => {
-                if (selectedFilter === 'this_month') {
-                  setSelectedFilter('today');
-                  setSelectedDate(todayStr);
-                } else {
-                  setSelectedFilter('this_month');
-                  setSelectedDate(null);
-                }
-              }}
-              className="mibu-pill px-4 py-1.5 text-xs font-bold text-black flex items-center space-x-1.5"
-            >
-              <span>{selectedFilter === 'this_month' ? 'this month' : (selectedDate ? selectedDate : 'today')}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
-            </button>
+        {/* Top Controls Bar: Period Selector Dropdown + Search input */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 relative">
+            <div className="relative">
+              <button
+                onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                className="mibu-pill px-4 py-1.5 text-xs font-bold text-black flex items-center space-x-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5 text-neutral-600" />
+                <span>
+                  {selectedFilter === 'this_month' && 'This Month'}
+                  {selectedFilter === 'this_week' && 'This Week'}
+                  {selectedFilter === 'specific_day' && 'Specific Day'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
+              </button>
+
+              {isPeriodDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsPeriodDropdownOpen(false)}
+                  />
+                  <div className="absolute left-0 mt-2 w-44 bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in-95">
+                    <button
+                      onClick={() => {
+                        setSelectedFilter('this_month');
+                        setSelectedDate(null);
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-neutral-50 transition-colors cursor-pointer ${
+                        selectedFilter === 'this_month' ? 'text-black bg-neutral-100/70' : 'text-neutral-600'
+                      }`}
+                    >
+                      <span>This Month</span>
+                      {selectedFilter === 'this_month' && <Check className="w-3.5 h-3.5 text-black" />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedFilter('this_week');
+                        setSelectedDate(null);
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-neutral-50 transition-colors cursor-pointer ${
+                        selectedFilter === 'this_week' ? 'text-black bg-neutral-100/70' : 'text-neutral-600'
+                      }`}
+                    >
+                      <span>This Week</span>
+                      {selectedFilter === 'this_week' && <Check className="w-3.5 h-3.5 text-black" />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedFilter('specific_day');
+                        if (!selectedDate) setSelectedDate(todayStr);
+                        setIsPeriodDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-neutral-50 transition-colors cursor-pointer ${
+                        selectedFilter === 'specific_day' ? 'text-black bg-neutral-100/70' : 'text-neutral-600'
+                      }`}
+                    >
+                      <span>Specific Day</span>
+                      {selectedFilter === 'specific_day' && <Check className="w-3.5 h-3.5 text-black" />}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Inline Date Selector when Specific Day is selected */}
+            {selectedFilter === 'specific_day' && (
+              <input
+                type="date"
+                value={selectedDate || todayStr}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="bg-neutral-50 border border-neutral-200 focus:border-black rounded-full px-3 py-1 text-xs text-black font-semibold focus:outline-none transition-colors cursor-pointer shadow-xs"
+              />
+            )}
           </div>
 
-          <div className="relative flex-1 max-w-xs">
+          <div className="relative flex-1 max-w-xs min-w-[160px]">
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -195,20 +277,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           activeUserPaid={activeUserPaid}
           onSelectDate={(dStr) => {
             setSelectedDate(dStr);
-            setSelectedFilter('today');
+            setSelectedFilter('specific_day');
           }}
         />
 
         {/* Horizontal Calendar Day Bar */}
         <div className="flex items-center justify-between gap-1 sm:gap-2 pt-2 border-t border-neutral-100">
           {daysList.map((d, idx) => {
-            const isSelected = selectedDate ? selectedDate === d.dateStr : (selectedFilter === 'today' && d.isToday);
+            const isSelected = selectedDate ? selectedDate === d.dateStr : (selectedFilter === 'specific_day' && d.isToday);
             return (
               <button
                 key={idx}
                 onClick={() => {
                   setSelectedDate(d.dateStr);
-                  setSelectedFilter('today');
+                  setSelectedFilter('specific_day');
                 }}
                 className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all cursor-pointer ${
                   isSelected ? 'bg-black text-white font-bold shadow-xs scale-105' : 'text-neutral-500 hover:text-black hover:bg-neutral-100'

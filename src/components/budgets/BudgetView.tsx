@@ -91,7 +91,7 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                   </div>
                 </div>
 
-                {/* Edit Budget Trigger */}
+                {/* Edit Budget Trigger - Enforce Personal Budget Permission Rule */}
                 {editingUserId === u.id ? (
                   <div className="flex items-center space-x-1">
                     <input
@@ -103,23 +103,27 @@ export const BudgetView: React.FC<BudgetViewProps> = ({
                     />
                     <button
                       onClick={() => handleSaveBudget(u.id)}
-                      className="p-1.5 bg-slate-900 text-white rounded-md font-bold hover:bg-slate-800"
+                      className="p-1.5 bg-slate-900 text-white rounded-md font-bold hover:bg-slate-800 cursor-pointer"
                     >
                       <Check className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
+                ) : (u.id === activeUser.id || activeUser.role === 'owner') ? (
                   <button
                     onClick={() => {
                       setEditingUserId(u.id);
                       setTempAmount(userBudget.toString());
                     }}
-                    className="flex items-center space-x-1 text-xs text-slate-500 hover:text-slate-900 p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+                    className="flex items-center space-x-1 text-xs text-slate-500 hover:text-slate-900 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
                     title="Change Monthly Budget Limit"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>Set Target</span>
                   </button>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-medium bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200" title={`Only ${u.name} can edit their personal budget`}>
+                    Personal Budget
+                  </span>
                 )}
               </div>
 

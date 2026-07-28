@@ -13,6 +13,8 @@ import { BudgetView } from './components/budgets/BudgetView';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { SmartInsightsView } from './components/ai/SmartInsightsView';
 import { HouseholdSettingsModal } from './components/household/HouseholdSettingsModal';
+import { RoommateLoginModal } from './components/auth/RoommateLoginModal';
+import { AddRoommateModal } from './components/auth/AddRoommateModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -30,6 +32,11 @@ export default function App() {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Authentication & Add Roommate Modals state
+  const [authTargetUser, setAuthTargetUser] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAddRoommateModalOpen, setIsAddRoommateModalOpen] = useState(false);
 
   // Subscribe to storage updates
   useEffect(() => {
@@ -61,6 +68,22 @@ export default function App() {
     storage.setActiveUserId(userId);
   };
 
+  const handleRequireAuthToSwitch = (targetUser: UserProfile) => {
+    setAuthTargetUser(targetUser);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (userId: string) => {
+    storage.setActiveUserId(userId);
+    setIsAuthModalOpen(false);
+    setAuthTargetUser(null);
+  };
+
+  const handleAddRoommateSuccess = (newRoommate: UserProfile) => {
+    setUsers(storage.getUsers());
+    alert(`Invitation sent to ${newRoommate.email}! ${newRoommate.name} has been added to ${household.name}.`);
+  };
+
   const handleOpenAddExpense = () => {
     setEditingExpense(null);
     setIsExpenseModalOpen(true);
@@ -72,15 +95,55 @@ export default function App() {
   };
 
   const handleSaveExpense = (expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
-    storage.saveExpense(expenseData);
+    try {
+      storage.saveExpense(expenseData, activeUser.id);
+    } catch (e: any) {
+      alert(e.message || 'Error saving expense');
+    }
   };
 
   const handleDeleteExpense = (id: string) => {
-    storage.deleteExpense(id);
+    try {
+      storage.deleteExpense(id, activeUser.id);
+    } catch (e: any) {
+      alert(e.message || 'Error deleting expense');
+    }
+  };
+
+  const handleRequestDeletion = (id: string, reason: string, comment: string) => {
+    try {
+      storage.requestExpenseDeletion(id, reason, comment, activeUser.id);
+    } catch (e: any) {
+      alert(e.message || 'Error requesting deletion');
+    }
+  };
+
+  const handleAddDeletionComment = (id: string, commentText: string) => {
+    try {
+      storage.addDeletionComment(id, commentText, activeUser.id);
+    } catch (e: any) {
+      alert(e.message || 'Error adding comment');
+    }
+  };
+
+  const handleCancelDeletion = (id: string) => {
+    try {
+      storage.cancelExpenseDeletion(id);
+    } catch (e: any) {
+      alert(e.message || 'Error canceling deletion');
+    }
   };
 
   const handleCreateSettlement = (settlementData: Omit<Settlement, 'id' | 'createdAt'>) => {
     storage.createSettlement(settlementData);
+  };
+
+  const handleUpdateSettlementStatus = (id: string, status: 'settled' | 'rejected', remarks?: string) => {
+    try {
+      storage.updateSettlementStatus(id, status, activeUser.id, remarks);
+    } catch (e: any) {
+      alert(e.message || 'Error updating settlement status');
+    }
   };
 
   const handleDeleteSettlement = (id: string) => {
@@ -88,7 +151,11 @@ export default function App() {
   };
 
   const handleSetBudget = (userId: string, month: number, year: number, amount: number) => {
-    storage.setBudget(userId, month, year, amount);
+    try {
+      storage.setBudget(userId, month, year, amount, activeUser.id);
+    } catch (e: any) {
+      alert(e.message || 'Error setting budget');
+    }
   };
 
   const handleUpdateHousehold = (updatedHousehold: Household) => {
@@ -109,6 +176,8 @@ export default function App() {
         users={users}
         activeUser={activeUser}
         onSelectUser={handleSelectUser}
+        onRequireAuthToSwitch={handleRequireAuthToSwitch}
+        onOpenAddRoommateModal={() => setIsAddRoommateModalOpen(true)}
         household={household}
         onOpenAddExpense={handleOpenAddExpense}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
@@ -136,10 +205,15 @@ export default function App() {
             categories={categories}
             users={users}
             activeUser={activeUser}
+            settlements={settlements}
             currencySymbol={household.currencySymbol}
             onOpenAddExpense={handleOpenAddExpense}
             onEditExpense={handleEditExpense}
             onDeleteExpense={handleDeleteExpense}
+            onRequestDeletion={handleRequestDeletion}
+            onConfirmDeletion={handleDeleteExpense}
+            onAddDeletionComment={handleAddDeletionComment}
+            onCancelDeletion={handleCancelDeletion}
           />
         )}
 
@@ -152,6 +226,7 @@ export default function App() {
             activeUser={activeUser}
             currencySymbol={household.currencySymbol}
             onCreateSettlement={handleCreateSettlement}
+            onUpdateSettlementStatus={handleUpdateSettlementStatus}
             onDeleteSettlement={handleDeleteSettlement}
           />
         )}
@@ -223,6 +298,25 @@ export default function App() {
         onResetData={handleResetData}
       />
 
+      {/* Roommate Authentication Switch Login Modal */}
+      <RoommateLoginModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthTargetUser(null);
+        }}
+        targetUser={authTargetUser}
+        onSuccess={handleAuthSuccess}
+      />
+
+      {/* Add New Roommate Invite Modal */}
+      <AddRoommateModal
+        isOpen={isAddRoommateModalOpen}
+        onClose={() => setIsAddRoommateModalOpen(false)}
+        onSuccess={handleAddRoommateSuccess}
+      />
+
     </div>
   );
 }
+

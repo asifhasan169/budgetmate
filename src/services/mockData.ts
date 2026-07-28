@@ -198,6 +198,78 @@ export const INITIAL_EXPENSES: Expense[] = [
     updatedBy: 'user-alex',
     createdAt: new Date(Date.now() - 1200000000).toISOString(),
     updatedAt: new Date(Date.now() - 1200000000).toISOString()
+  },
+  {
+    id: 'exp-7',
+    householdId: 'house-101',
+    title: 'June House Cleaning & Supplies',
+    amount: 120.00,
+    categoryId: 'cat-8',
+    categoryName: 'Household Supplies',
+    categoryIcon: 'Package',
+    categoryColor: 'bg-teal-500 text-teal-50 border-teal-600',
+    date: `${currentYear}-06-15`,
+    paidByUserId: 'user-sam',
+    paidByUserName: 'Sam Chen',
+    splitType: 'equal',
+    splitDetails: [
+      { userId: 'user-alex', userName: 'Alex Rivers', amount: 60.00, percentage: 50 },
+      { userId: 'user-sam', userName: 'Sam Chen', amount: 60.00, percentage: 50 }
+    ],
+    notes: 'Maid service and cleaning detergent bulk',
+    paymentMethod: 'UPI',
+    createdBy: 'user-sam',
+    updatedBy: 'user-sam',
+    createdAt: '2026-06-15T10:00:00.000Z',
+    updatedAt: '2026-06-15T10:00:00.000Z'
+  },
+  {
+    id: 'exp-8',
+    householdId: 'house-101',
+    title: 'May Utility & Electricity Bill',
+    amount: 215.50,
+    categoryId: 'cat-3',
+    categoryName: 'Utilities & Electricity',
+    categoryIcon: 'Zap',
+    categoryColor: 'bg-amber-500 text-amber-50 border-amber-600',
+    date: `${currentYear}-05-20`,
+    paidByUserId: 'user-alex',
+    paidByUserName: 'Alex Rivers',
+    splitType: 'equal',
+    splitDetails: [
+      { userId: 'user-alex', userName: 'Alex Rivers', amount: 107.75, percentage: 50 },
+      { userId: 'user-sam', userName: 'Sam Chen', amount: 107.75, percentage: 50 }
+    ],
+    notes: 'Late spring power bill',
+    paymentMethod: 'Bank Transfer',
+    createdBy: 'user-alex',
+    updatedBy: 'user-alex',
+    createdAt: '2026-05-20T10:00:00.000Z',
+    updatedAt: '2026-05-20T10:00:00.000Z'
+  },
+  {
+    id: 'exp-9',
+    householdId: 'house-101',
+    title: 'April Roommate Dinner Night',
+    amount: 180.00,
+    categoryId: 'cat-5',
+    categoryName: 'Dining Out & Takeaway',
+    categoryIcon: 'Utensils',
+    categoryColor: 'bg-rose-500 text-rose-50 border-rose-600',
+    date: `${currentYear}-04-12`,
+    paidByUserId: 'user-sam',
+    paidByUserName: 'Sam Chen',
+    splitType: 'equal',
+    splitDetails: [
+      { userId: 'user-alex', userName: 'Alex Rivers', amount: 90.00, percentage: 50 },
+      { userId: 'user-sam', userName: 'Sam Chen', amount: 90.00, percentage: 50 }
+    ],
+    notes: 'Housewarming celebration dinner',
+    paymentMethod: 'UPI',
+    createdBy: 'user-sam',
+    updatedBy: 'user-sam',
+    createdAt: '2026-04-12T10:00:00.000Z',
+    updatedAt: '2026-04-12T10:00:00.000Z'
   }
 ];
 

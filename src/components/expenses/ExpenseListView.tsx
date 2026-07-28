@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { Category, Expense, UserProfile } from '../../types';
-import { Search, Plus, Trash2, Edit3, Receipt, Calendar, Eye, Image as ImageIcon } from 'lucide-react';
+import { Category, Expense, UserProfile, Settlement } from '../../types';
+import { Search, Plus, Trash2, Edit3, Receipt, Calendar, Eye, Image as ImageIcon, AlertTriangle, MessageSquare } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
+import { DeleteExpenseModal } from './DeleteExpenseModal';
 
 interface ExpenseListViewProps {
   expenses: Expense[];
   categories: Category[];
   users: UserProfile[];
   activeUser: UserProfile;
+  settlements?: Settlement[];
   currencySymbol?: string;
   onOpenAddExpense: () => void;
   onEditExpense: (expense: Expense) => void;
   onDeleteExpense: (id: string) => void;
+  onRequestDeletion?: (id: string, reason: string, comment: string) => void;
+  onConfirmDeletion?: (id: string) => void;
+  onAddDeletionComment?: (id: string, commentText: string) => void;
+  onCancelDeletion?: (id: string) => void;
 }
 
 const getCategoryEmoji = (categoryName: string, specificUsage?: string): string => {
@@ -34,16 +40,24 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
   categories,
   users,
   activeUser,
+  settlements = [],
   currencySymbol = '₹',
   onOpenAddExpense,
   onEditExpense,
-  onDeleteExpense
+  onDeleteExpense,
+  onRequestDeletion,
+  onConfirmDeletion,
+  onAddDeletionComment,
+  onCancelDeletion
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('all');
   const [selectedSplitType, setSelectedSplitType] = useState<string>('all');
   const [previewReceiptExpense, setPreviewReceiptExpense] = useState<Expense | null>(null);
+
+  // Deletion modal state
+  const [deleteTargetExpense, setDeleteTargetExpense] = useState<Expense | null>(null);
 
   // Filter expenses
   const filteredExpenses = expenses.filter(exp => {
@@ -199,6 +213,29 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
                           "{exp.notes}"
                         </p>
                       )}
+
+                      {/* Deletion Request Alert Badge & Comments Preview */}
+                      {exp.isDeletionPending && exp.deletionReasonInfo && (
+                        <div 
+                          onClick={() => setDeleteTargetExpense(exp)}
+                          className="mt-2 bg-amber-50 border border-amber-200/80 p-2.5 rounded-xl flex items-center justify-between text-xs cursor-pointer hover:bg-amber-100/60 transition-colors"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                            <div>
+                              <span className="font-bold text-amber-900">Deletion Requested by {exp.deletionReasonInfo.requestedByUserName}:</span>{' '}
+                              <span className="text-amber-800 font-semibold">{exp.deletionReasonInfo.reason}</span>
+                              {exp.deletionReasonInfo.comment && (
+                                <span className="text-neutral-600 block text-[11px] italic">"{exp.deletionReasonInfo.comment}"</span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-800 bg-amber-200/60 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3 text-amber-700" />
+                            <span>{exp.deletionReasonInfo.roommateComments?.length || 0} Comments →</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -217,28 +254,45 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
                       {exp.receiptUrl && (
                         <button
                           onClick={() => setPreviewReceiptExpense(exp)}
-                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors mr-1"
+                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors mr-1 cursor-pointer"
                           title="View attached receipt image"
                         >
                           <ImageIcon className="w-3.5 h-3.5" />
                           <span>Receipt</span>
                         </button>
                       )}
-                      <button
-                        onClick={() => onEditExpense(exp)}
-                        className="p-2 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
-                        title="Edit Expense"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                      {exp.createdBy === activeUser.id ? (
+                        <button
+                          onClick={() => onEditExpense(exp)}
+                          className="p-2 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
+                          title="Edit Expense"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onEditExpense(exp)}
+                          className="p-2 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
+                          title={`View Expense Details (Created by ${exp.paidByUserName})`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+
                       <button
                         onClick={() => {
-                          if (confirm(`Are you sure you want to delete "${exp.title}"?`)) {
-                            onDeleteExpense(exp.id);
+                          if (exp.createdBy !== activeUser.id && !exp.isDeletionPending) {
+                            alert(`Permission Denied: Only the expense creator (${exp.paidByUserName}) can delete this expense.`);
+                            return;
                           }
+                          setDeleteTargetExpense(exp);
                         }}
-                        className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
-                        title="Delete Expense"
+                        className={`p-2 rounded-full transition-colors ${
+                          exp.createdBy === activeUser.id || exp.isDeletionPending
+                            ? 'text-neutral-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer' 
+                            : 'text-neutral-300 cursor-not-allowed opacity-50'
+                        }`}
+                        title={exp.createdBy === activeUser.id ? "Delete / Request Deletion" : `Only ${exp.paidByUserName} can delete this expense`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -260,6 +314,37 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
           receiptUrl={previewReceiptExpense.receiptUrl}
           expense={previewReceiptExpense}
           currencySymbol={currencySymbol}
+        />
+      )}
+
+      {/* Delete Expense Modal with Reason Selection, Settled Warning, & Roommate Comments */}
+      {deleteTargetExpense && (
+        <DeleteExpenseModal
+          isOpen={!!deleteTargetExpense}
+          onClose={() => setDeleteTargetExpense(null)}
+          expense={deleteTargetExpense}
+          activeUser={activeUser}
+          settlements={settlements}
+          currencySymbol={currencySymbol}
+          onRequestDeletion={(id, reason, comment) => {
+            if (onRequestDeletion) onRequestDeletion(id, reason, comment);
+            setDeleteTargetExpense(null);
+          }}
+          onConfirmDeletion={(id) => {
+            if (onConfirmDeletion) {
+              onConfirmDeletion(id);
+            } else {
+              onDeleteExpense(id);
+            }
+            setDeleteTargetExpense(null);
+          }}
+          onAddComment={(id, commentText) => {
+            if (onAddDeletionComment) onAddDeletionComment(id, commentText);
+          }}
+          onCancelDeletion={(id) => {
+            if (onCancelDeletion) onCancelDeletion(id);
+            setDeleteTargetExpense(null);
+          }}
         />
       )}
 

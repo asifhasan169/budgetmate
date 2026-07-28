@@ -7,7 +7,7 @@ interface AliveGraphProps {
   expenses: Expense[];
   activeUser: UserProfile;
   currencySymbol?: string;
-  selectedFilter: 'this_month' | 'today' | 'all';
+  selectedFilter: 'this_month' | 'this_week' | 'specific_day' | 'today' | 'all';
   selectedDate?: string;
   totalHouseholdExpenses: number;
   activeUserFairShare: number;
@@ -73,7 +73,6 @@ function AppleWalletNumber({ value, currencySymbol = '₹' }: { value: number; c
       const progress = elapsed / duration;
 
       // Easing curve: cubic-bezier(0.22, 1, 0.36, 1)
-      // Approximation: 1 - Math.pow(1 - progress, 3.5)
       const eased = 1 - Math.pow(1 - progress, 3.5);
       const current = startVal + (endVal - startVal) * eased;
 
@@ -118,24 +117,25 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
 
   // Calculate day-wise and monthly dataset points with 100% exact spendings sync
   const timelineDataset = useMemo(() => {
-    const isDayView = selectedFilter === 'today' || !!selectedDate;
+    const isDayView = selectedFilter === 'this_week' || selectedFilter === 'specific_day' || selectedFilter === 'today' || !!selectedDate;
 
     if (isDayView) {
       // Last 7 days breakdown for day-wise view
       const datesList: { dateStr: string; label: string; subLabel: string; isToday: boolean }[] = [];
-      const now = new Date();
+      const refDate = selectedDate ? new Date(selectedDate + 'T00:00:00') : new Date();
 
       for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
+        const d = new Date(refDate);
+        d.setDate(d.getDate() - i);
         const dStr = d.toISOString().split('T')[0];
         const dayNum = d.getDate().toString();
         const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+        const todayStr = new Date().toISOString().split('T')[0];
         datesList.push({
           dateStr: dStr,
           label: `${dayNum} ${dayName}`,
           subLabel: dayName,
-          isToday: i === 0
+          isToday: dStr === todayStr
         });
       }
 
@@ -143,7 +143,6 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
         const dayExps = expenses.filter(e => e.date === item.dateStr);
         const totalAmount = dayExps.reduce((sum, e) => sum + e.amount, 0);
 
-        // Calculate fair share for active user on this date
         let fairShare = 0;
         let paidAmount = 0;
 
@@ -173,23 +172,23 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
     // 6-Month timeline dataset
     const months = ['JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const monthBaseTotals: Record<string, number> = {
-      JUL: 1450.00,
+      JUL: 3853.20,
       AUG: 1980.50,
       SEP: 2210.00,
-      OCT: totalHouseholdExpenses > 0 ? totalHouseholdExpenses : 2898.20,
-      NOV: 1750.00,
+      OCT: 1750.00,
+      NOV: 1450.00,
       DEC: 1120.00
     };
 
     return months.map(m => {
       let mTotal = monthBaseTotals[m] || 1500;
-      let mFairShare = activeUserFairShare;
-      let mPaid = activeUserPaid;
+      let mFairShare = mTotal / 2;
+      let mPaid = mTotal * 0.8;
 
       // Sum real expenses for month if logged
       const mExps = expenses.filter(e => {
         if (!e.date) return false;
-        const dObj = new Date(e.date);
+        const dObj = new Date(e.date + 'T00:00:00');
         return dObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() === m;
       });
 
@@ -212,10 +211,10 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
         paidAmount: Math.round(mPaid * 100) / 100
       };
     });
-  }, [expenses, activeUser, selectedFilter, selectedDate, totalHouseholdExpenses, activeUserFairShare, activeUserPaid]);
+  }, [expenses, activeUser, selectedFilter, selectedDate]);
 
-  // Selected item index tracking
-  const [selectedIndex, setSelectedIndex] = useState(3);
+  // Selected item index tracking (Default to index 0 for JUL when loading month view)
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   // Sync selected index when selectedDate changes externally
   useEffect(() => {
@@ -223,16 +222,18 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
       const idx = timelineDataset.findIndex(d => d.dateStr === selectedDate);
       if (idx !== -1) {
         setSelectedIndex(idx);
+        return;
       }
     }
-  }, [selectedDate, timelineDataset]);
+    setSelectedIndex(0);
+  }, [selectedFilter, selectedDate, timelineDataset]);
 
   // Current active data metrics
   const currentMetric = timelineDataset[selectedIndex] || timelineDataset[0] || {
     totalAmount: totalHouseholdExpenses,
     fairShare: activeUserFairShare,
     paidAmount: activeUserPaid,
-    label: 'OCT'
+    label: 'JUL'
   };
 
   // Base SVG point calculations
@@ -257,71 +258,18 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
     });
   }, [timelineDataset, width, height, paddingX, paddingTop, paddingBottom]);
 
-  // Smooth continuous path morphing state
-  const [animatedPoints, setAnimatedPoints] = useState<TimelinePoint[]>(basePoints);
-  const targetPointsRef = useRef<TimelinePoint[]>(basePoints);
-  const startPointsRef = useRef<TimelinePoint[]>(basePoints);
-  const morphStartTimeRef = useRef<number>(performance.now());
-  const morphDuration = 750; // 750ms easing: cubic-bezier(0.22, 1, 0.36, 1)
-
-  useEffect(() => {
-    startPointsRef.current = animatedPoints.length === basePoints.length ? animatedPoints : basePoints;
-    targetPointsRef.current = basePoints;
-    morphStartTimeRef.current = performance.now();
-  }, [basePoints]);
-
-  // Continuous animation loop (Morphing + Ambient Wave)
-  useEffect(() => {
-    let frameId: number;
-
-    const tick = (now: number) => {
-      const elapsed = now - morphStartTimeRef.current;
-      const morphProgress = Math.min(elapsed / morphDuration, 1);
-      const ease = 1 - Math.pow(1 - morphProgress, 3.5); // cubic-bezier(0.22, 1, 0.36, 1)
-
-      const start = startPointsRef.current;
-      const target = targetPointsRef.current;
-
-      const newPoints = target.map((tPt, i) => {
-        const sPt = start[i] || tPt;
-        const interpX = sPt.x + (tPt.x - sPt.x) * ease;
-        const interpY = sPt.y + (tPt.y - sPt.y) * ease;
-
-        // Faint organic floating wave
-        const waveOffset = Math.sin(now * 0.0018 + i * 0.7) * 1.5;
-
-        return {
-          ...tPt,
-          x: interpX,
-          y: interpY + waveOffset
-        };
-      });
-
-      setAnimatedPoints(newPoints);
-      frameId = requestAnimationFrame(tick);
-    };
-
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, []);
-
-  const pathD = useMemo(() => generateSmoothPath(animatedPoints), [animatedPoints]);
+  const pathD = useMemo(() => generateSmoothPath(basePoints), [basePoints]);
 
   const areaD = useMemo(() => {
-    if (animatedPoints.length === 0) return '';
-    const firstX = animatedPoints[0].x;
-    const lastX = animatedPoints[animatedPoints.length - 1].x;
+    if (basePoints.length === 0) return '';
+    const firstX = basePoints[0].x;
+    const lastX = basePoints[basePoints.length - 1].x;
     const bottomY = height - paddingBottom + 10;
     return `${pathD} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
-  }, [pathD, animatedPoints, height, paddingBottom]);
+  }, [pathD, basePoints, height, paddingBottom]);
 
   // Active marker SVG coordinates
-  const activePoint = animatedPoints[selectedIndex] || animatedPoints[0] || { x: 0, y: 0 };
-
-  // Parallax motion values for timeline slide
-  const dragX = useMotionValue(0);
-  const gridX = useTransform(dragX, x => x * 0.8);  // 80% speed grid parallax
-  const labelsX = useTransform(dragX, x => x * 0.9); // 90% speed labels parallax
+  const activePoint = basePoints[selectedIndex] || basePoints[0] || { x: 0, y: 0 };
 
   const handleSelectIndex = (idx: number) => {
     const validIdx = Math.max(0, Math.min(timelineDataset.length - 1, idx));
@@ -333,22 +281,6 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
     }
     if (item.label && onSelectMonth) {
       onSelectMonth(item.label);
-    }
-  };
-
-  // Drag & momentum swipe handler
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const offset = info.offset.x;
-    const velocity = info.velocity.x;
-
-    if (offset < -40 || velocity < -200) {
-      if (selectedIndex < timelineDataset.length - 1) {
-        handleSelectIndex(selectedIndex + 1);
-      }
-    } else if (offset > 40 || velocity > 200) {
-      if (selectedIndex > 0) {
-        handleSelectIndex(selectedIndex - 1);
-      }
     }
   };
 
@@ -365,66 +297,72 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
         <div className="font-display font-black text-4xl sm:text-5xl text-black tracking-tight flex items-center justify-center">
           <AppleWalletNumber value={currentMetric.totalAmount} currencySymbol={currencySymbol} />
         </div>
-
-        {/* Fair Share & Out of Pocket Synchronized Rolls */}
-        <div className="text-xs text-neutral-500 font-medium flex flex-wrap items-center justify-center gap-3 pt-1">
-          <span>Your Fair Share: <strong className="text-black font-semibold"><AppleWalletNumber value={currentMetric.fairShare} currencySymbol={currencySymbol} /></strong></span>
-          <span>•</span>
-          <span>Paid Out-of-Pocket: <strong className="text-black font-semibold"><AppleWalletNumber value={currentMetric.paidAmount} currencySymbol={currencySymbol} /></strong></span>
-        </div>
       </div>
 
-      {/* Main Drag / Swipe Infinite Canvas Graph Container */}
+      {/* Main Drag / Swipe Canvas Graph Container */}
       <div className="relative w-full py-1 overflow-hidden rounded-2xl">
         
-        {/* Parallax Background Grid (80% Speed) */}
-        <motion.div 
-          style={{ x: gridX }}
-          className="absolute inset-0 pointer-events-none opacity-40 flex items-center justify-between px-8"
-        >
+        {/* Background Grid Line */}
+        <div className="absolute inset-0 pointer-events-none opacity-40 flex items-center justify-between px-8">
           <div className="w-full h-full border-b border-dashed border-neutral-200" />
-        </motion.div>
+        </div>
 
         {/* Swipe Control Helper Banner */}
         <div className="flex items-center justify-between text-[10px] text-neutral-400 font-bold uppercase tracking-wider px-2 mb-1">
           <button
             onClick={() => handleSelectIndex(selectedIndex - 1)}
             disabled={selectedIndex === 0}
-            className="flex items-center space-x-1 hover:text-black disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors"
+            className="flex items-center space-x-1 hover:text-black disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors cursor-pointer z-30"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span>PREV</span>
           </button>
 
-          <span className="flex items-center gap-1 text-neutral-400">
+          <span className="flex items-center gap-1 text-neutral-400 select-none">
             <Sliders className="w-3 h-3 text-neutral-400" />
-            <span>SWIPE TIMELINE LEFT / RIGHT</span>
+            <span>SLIDE POINTER LEFT / RIGHT</span>
           </span>
 
           <button
             onClick={() => handleSelectIndex(selectedIndex + 1)}
             disabled={selectedIndex === timelineDataset.length - 1}
-            className="flex items-center space-x-1 hover:text-black disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors"
+            className="flex items-center space-x-1 hover:text-black disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors cursor-pointer z-30"
           >
             <span>NEXT</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Draggable Timeline Canvas */}
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: -20, right: 20 }}
-          dragElastic={0.15}
-          dragTransition={{ power: 0.25, timeConstant: 250 }}
-          onDragEnd={handleDragEnd}
-          style={{ x: dragX }}
-          className="cursor-grab active:cursor-grabbing touch-pan-x"
-        >
+        {/* Slideable Timeline Canvas Container */}
+        <div className="relative w-full">
+          {/* Transparent Range Input Overlay for Drag/Slide control of the pointer */}
+          <div 
+            className="absolute inset-0 z-20 flex items-center" 
+            style={{ 
+              paddingLeft: `${paddingX}px`, 
+              paddingRight: `${paddingX}px`,
+              top: `${paddingTop}px`,
+              bottom: `${paddingBottom}px`
+            }}
+          >
+            <input
+              type="range"
+              min={0}
+              max={timelineDataset.length - 1}
+              step={1}
+              value={selectedIndex}
+              onChange={(e) => handleSelectIndex(parseInt(e.target.value))}
+              className="w-full h-full opacity-0 cursor-pointer pointer-events-auto"
+              style={{
+                WebkitAppearance: 'none',
+                appearance: 'none',
+              }}
+            />
+          </div>
+
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            className="w-full h-auto overflow-visible"
-            preserveAspectRatio="none"
+            className="w-full h-auto overflow-visible select-none pointer-events-none"
           >
             <defs>
               <linearGradient id="apple-graph-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -446,7 +384,7 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
               className="transition-all duration-300 ease-out"
             />
 
-            {/* Continuous Alive Main Line Path */}
+            {/* Continuous Main Line Path */}
             <path
               d={pathD}
               fill="none"
@@ -454,38 +392,18 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
               strokeWidth="3.4"
               strokeLinecap="round"
               strokeLinejoin="round"
+              className="transition-all duration-300 ease-out"
             />
 
-            {/* Base Nodes on the curve */}
-            {animatedPoints.map((pt, idx) => {
-              const isSelected = idx === selectedIndex;
-              return (
-                <g key={pt.label + idx} onClick={() => handleSelectIndex(idx)} className="cursor-pointer">
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={isSelected ? 4.5 : 3}
-                    fill={isSelected ? '#111111' : '#ffffff'}
-                    stroke="#111111"
-                    strokeWidth={isSelected ? 2.5 : 1.5}
-                    className="transition-all duration-200"
-                  />
-                </g>
-              );
-            })}
-
-            {/* Marker Animation (Scaling 1 -> 1.12 -> 1, attached to path, shadow, no teleport) */}
-            {/* Outer Pulsing Aura Ring */}
+            {/* Single Slideable Pointer Marker Attached to Selected Node on the Line */}
             <motion.circle
               animate={{
                 cx: activePoint.x,
-                cy: activePoint.y,
-                scale: [1, 1.12, 1]
+                cy: activePoint.y
               }}
               transition={{
-                cx: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-                cy: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-                scale: { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
+                cx: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+                cy: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
               }}
               r={12}
               fill="none"
@@ -494,17 +412,14 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
               className="opacity-60"
             />
 
-            {/* Main Spring White Circle Marker */}
             <motion.circle
               animate={{
                 cx: activePoint.x,
-                cy: activePoint.y,
-                scale: [1, 1.12, 1]
+                cy: activePoint.y
               }}
               transition={{
-                cx: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-                cy: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-                scale: { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
+                cx: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+                cy: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
               }}
               r={6.5}
               fill="#ffffff"
@@ -513,35 +428,31 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
               filter="url(#marker-drop-shadow)"
             />
 
-            {/* Dark Core Center Dot */}
             <motion.circle
               animate={{
                 cx: activePoint.x,
                 cy: activePoint.y
               }}
               transition={{
-                cx: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-                cy: { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
+                cx: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+                cy: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
               }}
               r={2}
               fill="#111111"
             />
 
           </svg>
-        </motion.div>
+        </div>
 
-        {/* Parallax Month / Day Labels Row (90% Speed Parallax) */}
-        <motion.div 
-          style={{ x: labelsX }}
-          className="flex items-center justify-between text-xs text-neutral-400 font-medium px-2 mt-3"
-        >
+        {/* Month / Day Labels Row */}
+        <div className="flex items-center justify-between text-xs text-neutral-400 font-medium px-2 mt-3 z-30 relative">
           {timelineDataset.map((d, idx) => {
             const isSelected = idx === selectedIndex;
             return (
               <button
                 key={d.label + idx}
                 onClick={() => handleSelectIndex(idx)}
-                className={`transition-all duration-300 cursor-pointer px-2 py-1 rounded-xl text-center flex flex-col items-center ${
+                className={`transition-all duration-300 cursor-pointer px-2 py-1 rounded-xl text-center flex flex-col items-center z-30 relative ${
                   isSelected
                     ? 'text-black font-extrabold scale-105 opacity-100'
                     : 'text-neutral-400 hover:text-black opacity-70 hover:opacity-100'
@@ -558,10 +469,11 @@ export const AliveGraph: React.FC<AliveGraphProps> = ({
               </button>
             );
           })}
-        </motion.div>
+        </div>
 
       </div>
 
     </div>
   );
 };
+

@@ -26,7 +26,7 @@ class StorageService {
     return () => this.listeners.delete(listener);
   }
 
-  private notify() {
+  public notify() {
     this.listeners.forEach(fn => fn());
   }
 
@@ -120,12 +120,18 @@ class StorageService {
     return this.getExpenses().find(e => e.id === id);
   }
 
-  public saveExpense(expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Expense {
+  public saveExpense(expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }, activeUserId?: string): Expense {
     const expenses = this.getExpenses();
     const nowISO = new Date().toISOString();
 
     if (expense.id) {
-      // Edit existing
+      // Edit existing - enforce ownership rule
+      const existing = expenses.find(e => e.id === expense.id);
+      if (existing && activeUserId && existing.createdBy !== activeUserId) {
+        console.warn(`Permission Denied: User ${activeUserId} attempted to edit expense created by ${existing.createdBy}`);
+        throw new Error(`Permission Denied: Only the creator of this expense can edit it.`);
+      }
+
       const updatedExpenses = expenses.map(e => {
         if (e.id === expense.id) {
           return {
@@ -153,10 +159,101 @@ class StorageService {
     }
   }
 
-  public deleteExpense(id: string): void {
+  public deleteExpense(id: string, activeUserId?: string): void {
     const expenses = this.getExpenses();
+    const existing = expenses.find(e => e.id === id);
+
+    if (existing && activeUserId && existing.createdBy !== activeUserId) {
+      console.warn(`Permission Denied: User ${activeUserId} attempted to delete expense created by ${existing.createdBy}`);
+      throw new Error(`Permission Denied: Only the creator of this expense can delete it.`);
+    }
+
     const updated = expenses.filter(e => e.id !== id);
     this.setItem(KEYS.EXPENSES, updated);
+  }
+
+  public requestExpenseDeletion(id: string, reason: string, comment: string, activeUserId: string): Expense {
+    const expenses = this.getExpenses();
+    const existing = expenses.find(e => e.id === id);
+    if (!existing) throw new Error("Expense not found");
+
+    if (existing.createdBy !== activeUserId) {
+      throw new Error("Permission Denied: Only the creator of this expense can initiate deletion.");
+    }
+
+    const user = this.getUsers().find(u => u.id === activeUserId);
+    const updatedExpenses = expenses.map(e => {
+      if (e.id === id) {
+        return {
+          ...e,
+          isDeletionPending: true,
+          deletionReasonInfo: {
+            reason,
+            comment,
+            requestedByUserId: activeUserId,
+            requestedByUserName: user ? user.name : 'Roommate',
+            requestedAt: new Date().toISOString(),
+            roommateComments: [],
+            isSettledWarningAcknowledged: true
+          },
+          updatedAt: new Date().toISOString()
+        } as Expense;
+      }
+      return e;
+    });
+
+    this.setItem(KEYS.EXPENSES, updatedExpenses);
+    return updatedExpenses.find(e => e.id === id)!;
+  }
+
+  public addDeletionComment(expenseId: string, commentText: string, activeUserId: string): Expense {
+    const expenses = this.getExpenses();
+    const existing = expenses.find(e => e.id === expenseId);
+    if (!existing || !existing.deletionReasonInfo) {
+      throw new Error("Expense or deletion request not found");
+    }
+
+    const user = this.getUsers().find(u => u.id === activeUserId);
+    const newComment = {
+      id: `c-${Date.now()}`,
+      userId: activeUserId,
+      userName: user ? user.name : 'Roommate',
+      comment: commentText,
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedExpenses = expenses.map(e => {
+      if (e.id === expenseId && e.deletionReasonInfo) {
+        return {
+          ...e,
+          deletionReasonInfo: {
+            ...e.deletionReasonInfo,
+            roommateComments: [...(e.deletionReasonInfo.roommateComments || []), newComment]
+          }
+        } as Expense;
+      }
+      return e;
+    });
+
+    this.setItem(KEYS.EXPENSES, updatedExpenses);
+    return updatedExpenses.find(e => e.id === expenseId)!;
+  }
+
+  public cancelExpenseDeletion(id: string): Expense {
+    const expenses = this.getExpenses();
+    const updatedExpenses = expenses.map(e => {
+      if (e.id === id) {
+        const { isDeletionPending, deletionReasonInfo, ...rest } = e;
+        return {
+          ...rest,
+          updatedAt: new Date().toISOString()
+        } as Expense;
+      }
+      return e;
+    });
+
+    this.setItem(KEYS.EXPENSES, updatedExpenses);
+    return updatedExpenses.find(e => e.id === id)!;
   }
 
   // Budgets
@@ -164,7 +261,12 @@ class StorageService {
     return this.getItem<MonthlyBudget[]>(KEYS.BUDGETS, INITIAL_BUDGETS);
   }
 
-  public setBudget(userId: string, month: number, year: number, amount: number): MonthlyBudget {
+  public setBudget(userId: string, month: number, year: number, amount: number, activeUserId?: string): MonthlyBudget {
+    const activeUser = this.getActiveUser();
+    if (activeUserId && userId !== activeUserId && activeUser.role !== 'owner') {
+      throw new Error(`Permission Denied: You can only edit your own monthly budget.`);
+    }
+
     const budgets = this.getBudgets();
     const users = this.getUsers();
     const household = this.getHousehold();
@@ -192,12 +294,15 @@ class StorageService {
   }
 
   // Settlements
-  public getSettlements(): Settlement[] {
-    return this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
+  public getSettlements(activeUserId?: string): Settlement[] {
+    const raw = this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
+    if (!activeUserId) return raw;
+    // Visibility Rule: Users should only see settlements that involve them (as debtor or creditor)
+    return raw.filter(s => s.owedByUserId === activeUserId || s.owedToUserId === activeUserId);
   }
 
   public createSettlement(settlement: Omit<Settlement, 'id' | 'createdAt'>): Settlement {
-    const settlements = this.getSettlements();
+    const settlements = this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
     const newSettlement: Settlement = {
       ...settlement,
       id: `settle-${Date.now()}`,
@@ -208,8 +313,37 @@ class StorageService {
     return newSettlement;
   }
 
+  public updateSettlementStatus(id: string, status: 'settled' | 'rejected', activeUserId: string, creditorRemarks?: string): Settlement {
+    const settlements = this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
+    const existing = settlements.find(s => s.id === id);
+
+    if (!existing) {
+      throw new Error("Settlement record not found.");
+    }
+
+    // Creditor Permission Rule: Only the creditor (owedToUserId) can accept or reject a settlement
+    if (existing.owedToUserId !== activeUserId) {
+      throw new Error("Permission Denied: Only the creditor can accept or reject this settlement payment.");
+    }
+
+    const updated = settlements.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          status,
+          creditorRemarks: creditorRemarks || s.creditorRemarks,
+          settledAt: status === 'settled' ? new Date().toISOString() : s.settledAt
+        };
+      }
+      return s;
+    });
+
+    this.setItem(KEYS.SETTLEMENTS, updated);
+    return updated.find(s => s.id === id)!;
+  }
+
   public deleteSettlement(id: string): void {
-    const settlements = this.getSettlements();
+    const settlements = this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
     const updated = settlements.filter(s => s.id !== id);
     this.setItem(KEYS.SETTLEMENTS, updated);
   }
@@ -218,7 +352,7 @@ class StorageService {
   public calculateSettlementSummary(month?: number, year?: number): SettlementSummary {
     const expenses = this.getExpenses();
     const users = this.getUsers();
-    const settlements = this.getSettlements();
+    const settlements = this.getItem<Settlement[]>(KEYS.SETTLEMENTS, INITIAL_SETTLEMENTS);
 
     // Filter expenses by month/year if provided
     const filteredExpenses = expenses.filter(e => {
@@ -229,7 +363,9 @@ class StorageService {
       return m === month && y === year;
     });
 
+    // ONLY settlements with status === 'settled' adjust running balances
     const filteredSettlements = settlements.filter(s => {
+      if (s.status !== 'settled') return false;
       if (!month || !year) return true;
       return s.month === month && s.year === year;
     });

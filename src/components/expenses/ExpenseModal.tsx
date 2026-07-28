@@ -184,6 +184,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     onClose();
   };
 
+  const isEditing = !!initialExpense;
+  const isCreator = !initialExpense || initialExpense.createdBy === activeUser.id;
+  const isReadOnly = isEditing && !isCreator;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg sm:max-w-xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col my-auto">
@@ -195,7 +199,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <Calculator className="w-5 h-5" />
             </div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              {initialExpense ? 'Edit Expense' : 'Log New Expense'}
+              {isReadOnly ? 'View Expense' : initialExpense ? 'Edit Expense' : 'Log New Expense'}
             </h2>
           </div>
           <button
@@ -205,6 +209,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Read-Only Permission Warning Banner */}
+        {isReadOnly && (
+          <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-2.5 text-amber-800 text-xs font-semibold flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>Read-Only View: Only the creator ({initialExpense?.paidByUserName}) can edit or delete this expense.</span>
+          </div>
+        )}
 
         {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
@@ -488,14 +500,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
             >
-              Cancel
+              {isReadOnly ? 'Close' : 'Cancel'}
             </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-md shadow-sm transition-all active:scale-95"
-            >
-              {initialExpense ? 'Save Changes' : 'Record Expense'}
-            </button>
+            {!isReadOnly && (
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-md shadow-sm transition-all active:scale-95 cursor-pointer"
+              >
+                {initialExpense ? 'Save Changes' : 'Record Expense'}
+              </button>
+            )}
           </div>
 
         </form>

@@ -10,6 +10,7 @@ interface SettlementViewProps {
   activeUser: UserProfile;
   currencySymbol?: string;
   onCreateSettlement: (settlement: Omit<Settlement, 'id' | 'createdAt'>) => void;
+  onUpdateSettlementStatus?: (id: string, status: 'settled' | 'rejected', remarks?: string) => void;
   onDeleteSettlement?: (id: string) => void;
 }
 
@@ -21,6 +22,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
   activeUser,
   currencySymbol = '₹',
   onCreateSettlement,
+  onUpdateSettlementStatus,
   onDeleteSettlement
 }) => {
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -35,6 +37,12 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
 
   const transfers = settlementSummary.transfers;
   const currentTransfer = transfers[selectedTransferIndex] || transfers[0];
+
+  // Visibility Rule: Users should only see settlements that involve them as debtor or creditor
+  const visibleSettlements = settlements.filter(s => s.owedByUserId === activeUser.id || s.owedToUserId === activeUser.id);
+  
+  // Pending payment submissions awaiting creditor review
+  const pendingApprovals = visibleSettlements.filter(s => s.owedToUserId === activeUser.id && s.status === 'pending');
 
   const openSettleModalFor = (idx: number) => {
     setSelectedTransferIndex(idx);
@@ -55,6 +63,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
       return;
     }
 
+    // Debtor permission check: Debtor submits payment proof/details
     const parsedAmt = parseFloat(customSettleAmount);
     const finalAmt = (!isNaN(parsedAmt) && parsedAmt > 0) ? parsedAmt : target.amount;
 
@@ -68,7 +77,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
       owedToUserId: target.toUserId,
       owedToUserName: target.toUserName,
       amount: Math.round(finalAmt * 100) / 100,
-      status: 'settled',
+      status: 'pending', // Debtor payment submitted -> awaits Creditor approval
       paymentMethod,
       notes: settleNotes || `Roommate balance settlement via ${paymentMethod}`,
       settledAt: now.toISOString()
@@ -144,6 +153,55 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
       {/* Main Settlement Status Cards */}
       <div className="space-y-6">
         
+        {/* Pending Settlement Payment Approvals (Creditor Action) */}
+        {pendingApprovals.length > 0 && (
+          <div className="bg-amber-50/90 border border-amber-200 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span>Pending Settlement Approvals (Action Required)</span>
+              </h2>
+              <span className="bg-amber-200 text-amber-900 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                {pendingApprovals.length} Awaiting Review
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {pendingApprovals.map(ps => (
+                <div key={ps.id} className="bg-white border border-amber-200/80 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div>
+                    <div className="text-sm font-bold text-black flex items-center space-x-2">
+                      <span>{ps.owedByUserName}</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>{ps.owedToUserName}</span>
+                      <span className="font-display font-black text-black ml-2">{currencySymbol}{ps.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      Via {ps.paymentMethod || 'UPI'} • Submitted {new Date(ps.settledAt || ps.createdAt).toLocaleDateString()}
+                    </div>
+                    {ps.notes && <p className="text-xs text-neutral-600 italic mt-1">"{ps.notes}"</p>}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => onUpdateSettlementStatus && onUpdateSettlementStatus(ps.id, 'settled')}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                    >
+                      Accept Payment
+                    </button>
+                    <button
+                      onClick={() => onUpdateSettlementStatus && onUpdateSettlementStatus(ps.id, 'rejected')}
+                      className="px-3.5 py-1.5 bg-neutral-100 hover:bg-rose-100 text-neutral-700 hover:text-rose-700 border border-neutral-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Outstanding Net Transfers Alert */}
         <div className="bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
@@ -153,7 +211,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
           {transfers.length === 0 ? (
             <div className="bg-neutral-50 border border-neutral-200 p-6 rounded-2xl text-center space-y-2">
               <CheckCircle2 className="w-8 h-8 text-black mx-auto" />
-              <h3 className="font-bold text-black text-sm">All Roommate Balances Are Fully Settled! ($0.00 balance)</h3>
+              <h3 className="font-bold text-black text-sm">All Roommate Balances Are Fully Settled! ({currencySymbol}0.00 balance)</h3>
               <p className="text-xs text-neutral-500">
                 Everyone has paid their exact fair share for all logged household expenses.
               </p>
@@ -191,12 +249,18 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                     <div className="font-display font-bold text-xl text-black">
                       {currencySymbol}{t.amount.toFixed(2)}
                     </div>
-                    <button
-                      onClick={() => openSettleModalFor(idx)}
-                      className="mibu-pill-active px-4 py-1.5 text-xs font-bold shadow-xs active:scale-95 cursor-pointer"
-                    >
-                      Settle
-                    </button>
+                    {t.fromUserId === activeUser.id ? (
+                      <button
+                        onClick={() => openSettleModalFor(idx)}
+                        className="mibu-pill-active px-4 py-1.5 text-xs font-bold shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        Pay / Settle
+                      </button>
+                    ) : (
+                      <span className="text-xs font-semibold text-neutral-400 bg-neutral-100 px-3 py-1 rounded-full border border-neutral-200">
+                        Awaiting Payment
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -246,7 +310,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
           <div className="border-t border-neutral-100 pt-3">
             <button
               onClick={() => setShowMathExplanation(!showMathExplanation)}
-              className="text-xs font-bold text-black hover:underline flex items-center space-x-1.5"
+              className="text-xs font-bold text-black hover:underline flex items-center space-x-1.5 cursor-pointer"
             >
               <HelpCircle className="w-4 h-4 text-neutral-400" />
               <span>How is this math calculated?</span>
@@ -301,7 +365,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                 onClick={() => setActiveLedgerTab('settlements')}
                 className={`px-3 py-1 rounded-lg transition-colors ${activeLedgerTab === 'settlements' ? 'bg-white text-black font-bold shadow-xs' : 'text-neutral-500 hover:text-black'}`}
               >
-                Settlement Payments ({settlements.length})
+                Settlements ({visibleSettlements.length})
               </button>
             </div>
           </div>
@@ -309,20 +373,24 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
           {/* Ledger List View */}
           <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
             
-            {/* Show Settlements List if Settlements Tab Active */}
+            {/* Show Settlements List if Settlements Tab Active (Filtered for Active User Visibility) */}
             {activeLedgerTab === 'settlements' ? (
-              settlements.length === 0 ? (
-                <p className="text-xs text-neutral-400 py-8 text-center">No past settlement payments recorded.</p>
+              visibleSettlements.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-8 text-center">No past settlement payments involving you recorded.</p>
               ) : (
-                settlements.map(s => (
+                visibleSettlements.map(s => (
                   <div
                     key={s.id}
                     className="bg-neutral-50 border border-neutral-200 p-4 rounded-2xl space-y-2 hover:bg-neutral-100/60 transition-colors"
                   >
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200 flex items-center justify-center font-bold text-xs">
-                          ✓
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                          s.status === 'settled' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' :
+                          s.status === 'rejected' ? 'bg-rose-100 text-rose-900 border border-rose-200' :
+                          'bg-amber-100 text-amber-900 border border-amber-200'
+                        }`}>
+                          {s.status === 'settled' ? '✓' : s.status === 'rejected' ? '✕' : '⏳'}
                         </div>
                         <span className="font-bold text-black">{s.owedByUserName} → {s.owedToUserName}</span>
                       </div>
@@ -336,7 +404,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                                 onDeleteSettlement(s.id);
                               }
                             }}
-                            className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                            className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                             title="Delete settlement entry"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -346,9 +414,19 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1 border-t border-neutral-200/60">
-                      <span className="bg-white text-black px-2.5 py-0.5 rounded-full border border-neutral-200 font-semibold text-[10px]">
-                        Via {s.paymentMethod || 'UPI'}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-white text-black px-2.5 py-0.5 rounded-full border border-neutral-200 font-semibold text-[10px]">
+                          Via {s.paymentMethod || 'UPI'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                          s.status === 'settled' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          s.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                          'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {s.status === 'settled' ? 'Accepted & Settled' : s.status === 'rejected' ? 'Payment Rejected' : 'Awaiting Creditor Approval'}
+                        </span>
+                      </div>
+
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3 text-neutral-400" />
                         {new Date(s.settledAt || s.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}

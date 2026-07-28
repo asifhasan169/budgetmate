@@ -7,6 +7,24 @@ export interface SplitDetail {
   percentage: number;
 }
 
+export interface DeletionComment {
+  id: string;
+  userId: string;
+  userName: string;
+  comment: string;
+  createdAt: string;
+}
+
+export interface DeletionReasonInfo {
+  reason: string;
+  comment?: string;
+  requestedByUserId: string;
+  requestedByUserName: string;
+  requestedAt: string;
+  roommateComments?: DeletionComment[];
+  isSettledWarningAcknowledged?: boolean;
+}
+
 export interface Expense {
   id: string;
   householdId: string;
@@ -29,6 +47,8 @@ export interface Expense {
   updatedBy: string;
   createdAt: string;
   updatedAt: string;
+  deletionReasonInfo?: DeletionReasonInfo;
+  isDeletionPending?: boolean;
 }
 
 export interface Category {
@@ -77,9 +97,11 @@ export interface Settlement {
   owedToUserId: string;
   owedToUserName: string;
   amount: number;
-  status: 'pending' | 'settled';
+  status: 'pending' | 'settled' | 'rejected';
   paymentMethod?: string;
+  paymentProofUrl?: string;
   notes?: string;
+  creditorRemarks?: string;
   settledAt?: string;
   createdAt: string;
 }
