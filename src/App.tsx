@@ -45,9 +45,8 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Calculated Settlement Summary
-  const now = new Date();
-  const settlementSummary = storage.calculateSettlementSummary(now.getMonth() + 1, now.getFullYear());
+  // Calculated Settlement Summary (All-time running net balance across all household expenses & settlements)
+  const settlementSummary = storage.calculateSettlementSummary();
 
   // Rule-based Smart Insights
   const smartInsights: SmartInsight[] = AIService.generateInsights(
@@ -82,6 +81,10 @@ export default function App() {
 
   const handleCreateSettlement = (settlementData: Omit<Settlement, 'id' | 'createdAt'>) => {
     storage.createSettlement(settlementData);
+  };
+
+  const handleDeleteSettlement = (id: string) => {
+    storage.deleteSettlement(id);
   };
 
   const handleSetBudget = (userId: string, month: number, year: number, amount: number) => {
@@ -149,6 +152,7 @@ export default function App() {
             activeUser={activeUser}
             currencySymbol={household.currencySymbol}
             onCreateSettlement={handleCreateSettlement}
+            onDeleteSettlement={handleDeleteSettlement}
           />
         )}
 

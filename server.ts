@@ -81,7 +81,7 @@ Respond ONLY with valid JSON array of insights.
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`BudgetMate server running on http://0.0.0.0:${PORT}`);
+    console.log(`BudgetMate server running on http://localhost:${PORT}`);
   });
 }
 

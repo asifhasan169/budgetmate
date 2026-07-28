@@ -208,19 +208,30 @@ class StorageService {
     return newSettlement;
   }
 
+  public deleteSettlement(id: string): void {
+    const settlements = this.getSettlements();
+    const updated = settlements.filter(s => s.id !== id);
+    this.setItem(KEYS.SETTLEMENTS, updated);
+  }
+
   // Settlement Calculator
   public calculateSettlementSummary(month?: number, year?: number): SettlementSummary {
     const expenses = this.getExpenses();
     const users = this.getUsers();
+    const settlements = this.getSettlements();
 
     // Filter expenses by month/year if provided
     const filteredExpenses = expenses.filter(e => {
+      if (!month || !year) return true;
       const d = new Date(e.date);
       const m = d.getMonth() + 1;
       const y = d.getFullYear();
-      if (month && m !== month) return false;
-      if (year && y !== year) return false;
-      return true;
+      return m === month && y === year;
+    });
+
+    const filteredSettlements = settlements.filter(s => {
+      if (!month || !year) return true;
+      return s.month === month && s.year === year;
     });
 
     const totalHouseholdExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -245,7 +256,20 @@ class StorageService {
         }
       });
 
-      const netBalance = totalPaid - fairShareOwed;
+      // Factor in recorded settlements:
+      // If user paid a settlement to someone else (owedByUserId === user.id), increase net balance (+ amount)
+      // If user received a settlement from someone else (owedToUserId === user.id), decrease net balance (- amount)
+      let settlementAdjustments = 0;
+      filteredSettlements.forEach(s => {
+        if (s.owedByUserId === user.id) {
+          settlementAdjustments += s.amount;
+        }
+        if (s.owedToUserId === user.id) {
+          settlementAdjustments -= s.amount;
+        }
+      });
+
+      const netBalance = (totalPaid - fairShareOwed) + settlementAdjustments;
 
       return {
         userId: user.id,
@@ -256,15 +280,15 @@ class StorageService {
       };
     });
 
-    // Compute transfers
+    // Compute net transfers between debtors and creditors
     const transfers: SettlementSummary['transfers'] = [];
-    const creditors = roommateStats.filter(r => r.netBalance > 0.01).map(r => ({ ...r }));
+    const creditors = roommateStats.filter(r => r.netBalance > 0.01).map(r => ({ ...r, amountOwed: r.netBalance }));
     const debtors = roommateStats.filter(r => r.netBalance < -0.01).map(r => ({ ...r, amountOwed: Math.abs(r.netBalance) }));
 
     debtors.forEach(debtor => {
       creditors.forEach(creditor => {
-        if (debtor.amountOwed <= 0 || creditor.netBalance <= 0) return;
-        const transferAmount = Math.min(debtor.amountOwed, creditor.netBalance);
+        if (debtor.amountOwed <= 0.01 || creditor.amountOwed <= 0.01) return;
+        const transferAmount = Math.min(debtor.amountOwed, creditor.amountOwed);
         
         transfers.push({
           fromUserId: debtor.userId,
@@ -275,7 +299,7 @@ class StorageService {
         });
 
         debtor.amountOwed -= transferAmount;
-        creditor.netBalance -= transferAmount;
+        creditor.amountOwed -= transferAmount;
       });
     });
 

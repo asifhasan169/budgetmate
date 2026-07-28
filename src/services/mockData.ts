@@ -222,21 +222,4 @@ export const INITIAL_BUDGETS: MonthlyBudget[] = [
   }
 ];
 
-export const INITIAL_SETTLEMENTS: Settlement[] = [
-  {
-    id: 'settle-1',
-    householdId: 'house-101',
-    month: currentMonth > 1 ? currentMonth - 1 : 12,
-    year: currentMonth > 1 ? currentYear : currentYear - 1,
-    owedByUserId: 'user-sam',
-    owedByUserName: 'Sam Chen',
-    owedToUserId: 'user-alex',
-    owedToUserName: 'Alex Rivers',
-    amount: 115.80,
-    status: 'settled',
-    paymentMethod: 'Zelle',
-    notes: 'June final balancing settlement',
-    settledAt: '2026-06-30T18:30:00.000Z',
-    createdAt: '2026-06-30T12:00:00.000Z'
-  }
-];
+export const INITIAL_SETTLEMENTS: Settlement[] = [];

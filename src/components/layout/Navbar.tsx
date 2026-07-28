@@ -43,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center space-x-3 min-w-0">
             <div className="flex items-center space-x-2">
               <span className="font-display font-extrabold text-2xl sm:text-3xl tracking-tighter text-black">
-                mibu
+                BudgetMate
               </span>
               <span className="hidden sm:inline-block text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200">
                 roommates

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Category, Expense, SplitDetail, SplitType, UserProfile } from '../../types';
-import { X, DollarSign, Calendar, Tag, CreditCard, Upload, RefreshCw, Calculator, User, AlertCircle, FileText } from 'lucide-react';
+import { X, DollarSign, Calendar, Tag, CreditCard, Upload, RefreshCw, Calculator, User, AlertCircle, FileText, Eye, Trash2 } from 'lucide-react';
+import { ReceiptModal } from './ReceiptModal';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI (GPay / PhonePe / Paytm)');
   const [receiptUrl, setReceiptUrl] = useState('');
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
   // Custom split state for 2 roommates (extendable)
   const [customPcts, setCustomPcts] = useState<Record<string, number>>({});
@@ -430,18 +432,52 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">Receipt Image (Optional)</label>
-              <div className="flex items-center space-x-3">
-                <label className="cursor-pointer px-3.5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-colors">
-                  <Upload className="w-4 h-4 text-indigo-600" />
-                  <span>Upload Scan / Photo</span>
-                  <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
-                </label>
-                {receiptUrl && (
-                  <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                    Receipt attached ✓
-                  </span>
-                )}
-              </div>
+              
+              {!receiptUrl ? (
+                <div className="flex items-center space-x-3">
+                  <label className="cursor-pointer px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all">
+                    <Upload className="w-4 h-4 text-indigo-600" />
+                    <span>Upload Scan / Photo</span>
+                    <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
+                  </label>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <img 
+                      src={receiptUrl} 
+                      alt="Receipt thumbnail" 
+                      onClick={() => setShowReceiptPreview(true)}
+                      className="w-12 h-12 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                        Receipt attached ✓
+                      </span>
+                      <p className="text-[11px] text-slate-500 truncate">Click thumbnail or button to preview</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowReceiptPreview(true)}
+                      className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptUrl('')}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                      title="Remove receipt image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -464,6 +500,35 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         </form>
       </div>
+
+      {/* Full-screen Receipt Image Preview Lightbox */}
+      <ReceiptModal
+        isOpen={showReceiptPreview}
+        onClose={() => setShowReceiptPreview(false)}
+        receiptUrl={receiptUrl}
+        expense={initialExpense ? initialExpense : {
+          id: 'temp',
+          title: title || 'Expense Receipt',
+          amount: numericAmount,
+          categoryId,
+          categoryName: categories.find(c => c.id === categoryId)?.name || 'General',
+          categoryIcon: '',
+          categoryColor: '',
+          date,
+          paidByUserId,
+          paidByUserName: users.find(u => u.id === paidByUserId)?.name || activeUser.name,
+          splitType,
+          splitDetails: [],
+          createdBy: activeUser.id,
+          updatedBy: activeUser.id,
+          householdId: activeUser.householdId,
+          createdAt: date,
+          updatedAt: date,
+          paymentMethod,
+          specificUsage
+        }}
+        currencySymbol={currencySymbol}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Category, Expense, UserProfile } from '../../types';
-import { Search, Plus, Trash2, Edit3, Receipt, Calendar } from 'lucide-react';
+import { Search, Plus, Trash2, Edit3, Receipt, Calendar, Eye, Image as ImageIcon } from 'lucide-react';
+import { ReceiptModal } from './ReceiptModal';
 
 interface ExpenseListViewProps {
   expenses: Expense[];
@@ -42,6 +43,7 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('all');
   const [selectedSplitType, setSelectedSplitType] = useState<string>('all');
+  const [previewReceiptExpense, setPreviewReceiptExpense] = useState<Expense | null>(null);
 
   // Filter expenses
   const filteredExpenses = expenses.filter(exp => {
@@ -212,6 +214,16 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
                     </div>
 
                     <div className="flex items-center space-x-1">
+                      {exp.receiptUrl && (
+                        <button
+                          onClick={() => setPreviewReceiptExpense(exp)}
+                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors mr-1"
+                          title="View attached receipt image"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>Receipt</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => onEditExpense(exp)}
                         className="p-2 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
@@ -239,6 +251,17 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Receipt Lightbox Modal */}
+      {previewReceiptExpense && previewReceiptExpense.receiptUrl && (
+        <ReceiptModal
+          isOpen={!!previewReceiptExpense}
+          onClose={() => setPreviewReceiptExpense(null)}
+          receiptUrl={previewReceiptExpense.receiptUrl}
+          expense={previewReceiptExpense}
+          currencySymbol={currencySymbol}
+        />
+      )}
 
     </div>
   );

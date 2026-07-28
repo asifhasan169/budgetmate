@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Expense, MonthlyBudget, SettlementSummary, UserProfile } from '../../types';
-import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, ChevronRight, Calculator, Calendar } from 'lucide-react';
+import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, ChevronRight, Calculator, Calendar, Image as ImageIcon } from 'lucide-react';
+import { ReceiptModal } from '../expenses/ReceiptModal';
+import { AliveGraph } from './AliveGraph';
 
 interface DashboardViewProps {
   expenses: Expense[];
@@ -42,7 +44,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onEditExpense
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<'this_month' | 'today' | 'all'>('this_month');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [previewReceiptExpense, setPreviewReceiptExpense] = useState<Expense | null>(null);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -75,6 +79,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const matchUsage = (e.specificUsage || '').toLowerCase().includes(q);
       if (!matchTitle && !matchCat && !matchUsage) return false;
     }
+    if (selectedDate) return e.date === selectedDate;
     if (selectedFilter === 'today') return e.date === todayStr;
     return true;
   });
@@ -120,7 +125,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <h1 className="font-display font-black text-3xl sm:text-4xl tracking-tighter text-black mt-2">
-          mibu
+          BudgetMate
         </h1>
         <p className="text-xs text-neutral-500 font-medium tracking-tight mt-0.5">
           your minimal roommate budgeting app
@@ -143,17 +148,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Minimal Total Spending View (Matching Screen 2) */}
+      {/* 2. Main Minimal Total Spending View with Apple Health Style Alive Graph */}
       <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
         
         {/* Top Controls Bar: Dropdown pill + Search input */}
         <div className="flex items-center justify-between gap-3">
           <div className="relative">
             <button
-              onClick={() => setSelectedFilter(selectedFilter === 'this_month' ? 'today' : 'this_month')}
+              onClick={() => {
+                if (selectedFilter === 'this_month') {
+                  setSelectedFilter('today');
+                  setSelectedDate(todayStr);
+                } else {
+                  setSelectedFilter('this_month');
+                  setSelectedDate(null);
+                }
+              }}
               className="mibu-pill px-4 py-1.5 text-xs font-bold text-black flex items-center space-x-1.5"
             >
-              <span>{selectedFilter === 'this_month' ? 'this month' : 'today'}</span>
+              <span>{selectedFilter === 'this_month' ? 'this month' : (selectedDate ? selectedDate : 'today')}</span>
               <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
             </button>
           </div>
@@ -170,61 +183,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Big Balance Amount Display */}
-        <div className="text-center py-2">
-          <div className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1">
-            Total Household Spent
-          </div>
-          <div className="font-display font-bold text-4xl sm:text-5xl text-black tracking-tight">
-            {currencySymbol}{settlementSummary.totalHouseholdExpenses.toFixed(2)}
-          </div>
-          <div className="text-xs text-neutral-500 mt-2 flex items-center justify-center gap-2">
-            <span>Your Fair Share: <strong>{currencySymbol}{activeUserFairShare.toFixed(2)}</strong></span>
-            <span>•</span>
-            <span>Paid Out-of-Pocket: <strong>{currencySymbol}{activeUserPaid.toFixed(2)}</strong></span>
-          </div>
-        </div>
-
-        {/* Minimal Smooth Line Graph */}
-        <div className="py-2">
-          <div className="relative h-20 w-full flex items-end">
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 300 60" preserveAspectRatio="none">
-              <path
-                d="M 0,35 Q 45,55 90,20 T 180,35 T 270,10 L 300,40"
-                fill="none"
-                stroke="#111111"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              {/* Highlighted active dot node */}
-              <circle cx="180" cy="35" r="5" fill="#ffffff" stroke="#111111" strokeWidth="3" />
-            </svg>
-          </div>
-
-          {/* Month labels under graph */}
-          <div className="flex items-center justify-between text-[11px] text-neutral-400 font-medium px-1 mt-2">
-            <span>jul</span>
-            <span>aug</span>
-            <span>sep</span>
-            <span className="font-bold text-black border-b-2 border-black pb-0.5">oct</span>
-            <span>nov</span>
-            <span>dec</span>
-          </div>
-        </div>
+        {/* Apple Health / Linear Style Alive Dynamic Drag Wave Graph */}
+        <AliveGraph
+          expenses={expenses}
+          activeUser={activeUser}
+          currencySymbol={currencySymbol}
+          selectedFilter={selectedFilter}
+          selectedDate={selectedDate || undefined}
+          totalHouseholdExpenses={settlementSummary.totalHouseholdExpenses}
+          activeUserFairShare={activeUserFairShare}
+          activeUserPaid={activeUserPaid}
+          onSelectDate={(dStr) => {
+            setSelectedDate(dStr);
+            setSelectedFilter('today');
+          }}
+        />
 
         {/* Horizontal Calendar Day Bar */}
         <div className="flex items-center justify-between gap-1 sm:gap-2 pt-2 border-t border-neutral-100">
-          {daysList.map((d, idx) => (
-            <div
-              key={idx}
-              className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all ${
-                d.isToday ? 'bg-black text-white font-bold shadow-xs' : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
-              }`}
-            >
-              <span className="text-sm font-display font-bold">{d.dayNum}</span>
-              <span className="text-[10px] uppercase font-semibold">{d.dayName}</span>
-            </div>
-          ))}
+          {daysList.map((d, idx) => {
+            const isSelected = selectedDate ? selectedDate === d.dateStr : (selectedFilter === 'today' && d.isToday);
+            return (
+              <button
+                key={idx}
+                onClick={() => {
+                  setSelectedDate(d.dateStr);
+                  setSelectedFilter('today');
+                }}
+                className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all cursor-pointer ${
+                  isSelected ? 'bg-black text-white font-bold shadow-xs scale-105' : 'text-neutral-500 hover:text-black hover:bg-neutral-100'
+                }`}
+              >
+                <span className="text-sm font-display font-bold">{d.dayNum}</span>
+                <span className="text-[10px] uppercase font-semibold">{d.dayName}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -314,12 +308,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right flex-shrink-0 ml-3">
-                    <div className="font-display font-bold text-sm text-black">
-                      -{currencySymbol}{exp.amount.toFixed(2)}
-                    </div>
-                    <div className="text-[10px] text-neutral-400 mt-0.5">
-                      {exp.date}
+                  <div className="text-right flex-shrink-0 ml-3 flex items-center gap-3">
+                    {exp.receiptUrl && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewReceiptExpense(exp);
+                        }}
+                        className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-colors"
+                        title="View attached receipt image"
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>Receipt</span>
+                      </button>
+                    )}
+                    <div>
+                      <div className="font-display font-bold text-sm text-black">
+                        -{currencySymbol}{exp.amount.toFixed(2)}
+                      </div>
+                      <div className="text-[10px] text-neutral-400 mt-0.5">
+                        {exp.date}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -332,6 +341,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Receipt Lightbox Modal */}
+      {previewReceiptExpense && previewReceiptExpense.receiptUrl && (
+        <ReceiptModal
+          isOpen={!!previewReceiptExpense}
+          onClose={() => setPreviewReceiptExpense(null)}
+          receiptUrl={previewReceiptExpense.receiptUrl}
+          expense={previewReceiptExpense}
+          currencySymbol={currencySymbol}
+        />
+      )}
 
     </div>
   );
