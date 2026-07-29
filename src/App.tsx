@@ -280,8 +280,8 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            <strong className="text-slate-800">BudgetMate</strong> — Roommate Expense & Smart Settlement Engine
+          <div className="flex items-center space-x-2">
+            <strong className="text-slate-800">BudgetMate</strong> — <span>Shared expenses, simplified.</span>
           </div>
           <div className="flex items-center space-x-3 text-[11px] text-slate-500">
             <span>Roommate Perspective: <strong className="text-indigo-600">{activeUser.name}</strong></span>

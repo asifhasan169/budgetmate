@@ -4,6 +4,7 @@ import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, 
 import { ReceiptModal } from '../expenses/ReceiptModal';
 import { AliveGraph } from './AliveGraph';
 import { CategorySvgIcon } from '../categories/CategorySvgIcon';
+import { BudgetMateLogo } from '../common/BudgetMateLogo';
 
 interface DashboardViewProps {
   expenses: Expense[];
@@ -137,20 +138,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <span className="mibu-pill px-3 py-1 text-[11px] font-semibold text-neutral-700">settle</span>
         </div>
 
-        {/* Minimal Avatar Line-Art Illustration */}
+        {/* Minimal Option 9 House + Receipt Logo */}
         <div className="my-3 flex justify-center">
-          <div className="w-20 h-20 rounded-full border-2 border-black flex items-center justify-center bg-neutral-50 shadow-xs">
-            <svg className="w-12 h-12 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-            </svg>
+          <div className="w-24 h-24 rounded-full border-2 border-black flex items-center justify-center bg-white shadow-sm">
+            <BudgetMateLogo size={68} className="text-black" />
           </div>
         </div>
 
         <h1 className="font-display font-black text-3xl sm:text-4xl tracking-tighter text-black mt-2">
           BudgetMate
         </h1>
-        <p className="text-xs text-neutral-500 font-medium tracking-tight mt-0.5">
-          your minimal roommate budgeting app
+        <p className="text-xs text-neutral-500 font-semibold tracking-tight mt-0.5">
+          Shared expenses, simplified.
         </p>
 
         <div className="mt-5 flex items-center justify-center gap-2">

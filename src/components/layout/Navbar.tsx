@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, Household } from '../../types';
 import { Wallet, Plus, Users, Sparkles, PieChart, Receipt, DollarSign, Settings, Check, ChevronDown, UserPlus, Lock, User } from 'lucide-react';
+import { BudgetMateLogo } from '../common/BudgetMateLogo';
 
 interface NavbarProps {
   activeTab: string;
@@ -46,12 +47,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* Brand Logo & Household Pill */}
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-10 h-10 rounded-full border-2 border-black flex items-center justify-center bg-white shadow-2xs flex-shrink-0">
+                <BudgetMateLogo size={26} className="text-black" />
+              </div>
               <span className="font-display font-extrabold text-2xl sm:text-3xl tracking-tighter text-black">
                 BudgetMate
               </span>
               <span className="hidden sm:inline-block text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200">
-                roommates
+                Shared expenses, simplified.
               </span>
             </div>
             
