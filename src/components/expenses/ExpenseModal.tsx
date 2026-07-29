@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Category, Expense, SplitDetail, SplitType, UserProfile } from '../../types';
 import { X, DollarSign, Calendar, Tag, CreditCard, Upload, RefreshCw, Calculator, User, AlertCircle, FileText, Eye, Trash2 } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
+import { CategorySvgIcon } from '../categories/CategorySvgIcon';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -257,17 +258,26 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">Category</label>
-              <select
-                value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
-                className="w-full bg-slate-50/80 border border-slate-200 focus:border-indigo-500 focus:bg-white text-slate-900 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
-              >
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 flex items-center pointer-events-none text-black">
+                  <CategorySvgIcon
+                    categoryId={categoryId}
+                    categoryName={categories.find(c => c.id === categoryId)?.name}
+                    size={18}
+                  />
+                </div>
+                <select
+                  value={categoryId}
+                  onChange={e => setCategoryId(e.target.value)}
+                  className="w-full bg-slate-50/80 border border-slate-200 focus:border-black focus:bg-white text-slate-900 font-bold rounded-xl pl-9 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 transition-all font-medium cursor-pointer"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-1.5">

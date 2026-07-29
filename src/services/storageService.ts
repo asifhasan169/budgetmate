@@ -105,6 +105,82 @@ class StorageService {
     return users.find(u => u.id === activeId) || users[0];
   }
 
+  public updateUserProfile(userId: string, updates: Partial<UserProfile>): UserProfile {
+    const users = this.getUsers();
+    let updatedUser: UserProfile | null = null;
+    const updatedUsers = users.map(u => {
+      if (u.id === userId) {
+        updatedUser = { ...u, ...updates };
+        return updatedUser;
+      }
+      return u;
+    });
+
+    if (updatedUser) {
+      this.setItem(KEYS.USERS, updatedUsers);
+    }
+    return updatedUser || users[0];
+  }
+
+  public removeRoommate(userIdToRemove: string): void {
+    const users = this.getUsers();
+    const userToRemove = users.find(u => u.id === userIdToRemove);
+    if (!userToRemove) return;
+    if (userToRemove.role === 'owner') {
+      throw new Error("Room Owner cannot be removed directly. Transfer ownership first.");
+    }
+
+    const filteredUsers = users.filter(u => u.id !== userIdToRemove);
+    this.setItem(KEYS.USERS, filteredUsers);
+
+    // If active user was removed, switch active user
+    if (this.getActiveUserId() === userIdToRemove) {
+      this.setActiveUserId(filteredUsers[0]?.id || INITIAL_USERS[0].id);
+    }
+  }
+
+  public transferOwnership(newOwnerId: string): void {
+    const users = this.getUsers();
+    const updatedUsers = users.map(u => {
+      if (u.id === newOwnerId) {
+        return { ...u, role: 'owner' as const };
+      }
+      if (u.role === 'owner') {
+        return { ...u, role: 'member' as const };
+      }
+      return u;
+    });
+    this.setItem(KEYS.USERS, updatedUsers);
+  }
+
+  public leaveRoom(userId: string): { success: boolean; error?: string; isLastMember?: boolean } {
+    const users = this.getUsers();
+    const userLeaving = users.find(u => u.id === userId);
+    if (!userLeaving) return { success: false, error: 'User not found' };
+
+    if (userLeaving.role === 'owner' && users.length > 1) {
+      return {
+        success: false,
+        error: 'You must transfer ownership before leaving this room.'
+      };
+    }
+
+    if (users.length === 1) {
+      return { success: true, isLastMember: true };
+    }
+
+    const remainingUsers = users.filter(u => u.id !== userId);
+    this.setItem(KEYS.USERS, remainingUsers);
+    this.setActiveUserId(remainingUsers[0].id);
+    return { success: true };
+  }
+
+  public deleteHousehold(): void {
+    localStorage.removeItem(KEYS.HOUSEHOLD);
+    localStorage.removeItem(KEYS.USERS);
+    localStorage.removeItem(KEYS.ACTIVE_USER_ID);
+  }
+
   // Categories
   public getCategories(): Category[] {
     return this.getItem(KEYS.CATEGORIES, DEFAULT_CATEGORIES);

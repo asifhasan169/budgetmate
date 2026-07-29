@@ -15,6 +15,7 @@ import { SmartInsightsView } from './components/ai/SmartInsightsView';
 import { HouseholdSettingsModal } from './components/household/HouseholdSettingsModal';
 import { RoommateLoginModal } from './components/auth/RoommateLoginModal';
 import { AddRoommateModal } from './components/auth/AddRoommateModal';
+import { ProfileView } from './components/profile/ProfileView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -259,6 +260,19 @@ export default function App() {
             users={users}
             settlementSummary={settlementSummary}
             currencySymbol={household.currencySymbol}
+          />
+        )}
+
+        {activeTab === 'profile' && (
+          <ProfileView
+            activeUser={activeUser}
+            users={users}
+            household={household}
+            expenses={expenses}
+            settlements={settlements}
+            onUpdateActiveUser={(u) => setActiveUser(u)}
+            onRefreshUsers={() => setUsers(storage.getUsers())}
+            onOpenAddRoommateModal={() => setIsAddRoommateModalOpen(true)}
           />
         )}
       </main>

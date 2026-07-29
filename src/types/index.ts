@@ -67,6 +67,16 @@ export interface UserProfile {
   householdId: string;
   role: 'owner' | 'member';
   color: string;
+  displayName?: string;
+  phone?: string;
+  dob?: string;
+  gender?: string;
+  occupation?: string;
+  bio?: string;
+  joinedDate?: string;
+  authProvider?: string;
+  lastLogin?: string;
+  createdAt?: string;
 }
 
 export interface Household {

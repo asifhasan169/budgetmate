@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, Household } from '../../types';
-import { Wallet, Plus, Users, Sparkles, PieChart, Receipt, DollarSign, Settings, Check, ChevronDown, UserPlus, Lock } from 'lucide-react';
+import { Wallet, Plus, Users, Sparkles, PieChart, Receipt, DollarSign, Settings, Check, ChevronDown, UserPlus, Lock, User } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: string;
@@ -35,7 +35,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'settlements', label: 'Settlements', icon: DollarSign },
     { id: 'budgets', label: 'Budget Planner', icon: PieChart },
     { id: 'insights', label: 'Smart Insights', icon: Sparkles },
-    { id: 'analytics', label: 'Analytics & Export', icon: PieChart }
+    { id: 'analytics', label: 'Analytics & Export', icon: PieChart },
+    { id: 'profile', label: 'Profile & Room', icon: User }
   ];
 
   return (

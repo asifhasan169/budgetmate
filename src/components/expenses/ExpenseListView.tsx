@@ -3,6 +3,8 @@ import { Category, Expense, UserProfile, Settlement } from '../../types';
 import { Search, Plus, Trash2, Edit3, Receipt, Calendar, Eye, Image as ImageIcon, AlertTriangle, MessageSquare } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
 import { DeleteExpenseModal } from './DeleteExpenseModal';
+import { CategorySection } from '../categories/CategorySection';
+import { CategorySvgIcon } from '../categories/CategorySvgIcon';
 
 interface ExpenseListViewProps {
   expenses: Expense[];
@@ -99,8 +101,10 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
         </button>
       </div>
 
-      {/* Filter Bar Pills */}
-      <div className="bg-white border border-neutral-200 p-5 rounded-3xl shadow-xs space-y-3">
+      {/* Category Section & Filter Bar (Black Theme Minimalism) */}
+      <div className="bg-white border border-neutral-200 p-5 rounded-3xl shadow-xs space-y-4">
+        
+        {/* Top Controls: Search, Black Theme Category Dropdown, Paid By, Split */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           {/* Search */}
@@ -111,27 +115,26 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
               placeholder="Search..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-black"
+              className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-black font-medium"
             />
           </div>
 
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-black"
-          >
-            <option value="all">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
+          {/* Black Theme Custom Category Dropdown */}
+          <div className="col-span-1">
+            <CategorySection
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              showQuickPills={false}
+              layout="compact"
+            />
+          </div>
 
           {/* Paid By Filter */}
           <select
             value={selectedPaidBy}
             onChange={e => setSelectedPaidBy(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-black"
+            className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full px-3.5 py-1.5 text-xs focus:outline-none focus:border-black font-semibold cursor-pointer"
           >
             <option value="all">All Roommates</option>
             {users.map(u => (
@@ -143,13 +146,25 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
           <select
             value={selectedSplitType}
             onChange={e => setSelectedSplitType(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-black"
+            className="w-full bg-neutral-50 border border-neutral-200 text-black rounded-full px-3.5 py-1.5 text-xs focus:outline-none focus:border-black font-semibold cursor-pointer"
           >
             <option value="all">All Split Types</option>
             <option value="equal">Equal 50/50 Splits</option>
             <option value="custom">Custom Overrides</option>
           </select>
 
+        </div>
+
+        {/* Quick Category Bar (Black Theme Minimalist SVG Pills) */}
+        <div className="pt-2 border-t border-neutral-100">
+          <CategorySection
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            showQuickPills={true}
+            layout="compact"
+            className="space-y-0"
+          />
         </div>
 
         {/* Filter Summary Counter */}
@@ -181,9 +196,14 @@ export const ExpenseListView: React.FC<ExpenseListViewProps> = ({
                 >
                   {/* Left info */}
                   <div className="flex items-center space-x-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xl flex-shrink-0">
-                      {emoji}
-                    </div>
+                    <CategorySvgIcon
+                      categoryName={exp.categoryName}
+                      categoryId={exp.categoryId}
+                      iconName={exp.categoryIcon}
+                      size={20}
+                      variant="black-badge"
+                      className="w-10 h-10 flex-shrink-0"
+                    />
 
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center space-x-2">

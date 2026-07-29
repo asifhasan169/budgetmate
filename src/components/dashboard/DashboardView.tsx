@@ -3,6 +3,7 @@ import { Expense, MonthlyBudget, SettlementSummary, UserProfile } from '../../ty
 import { Search, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, ChevronRight, Calculator, Calendar, Image as ImageIcon, Check } from 'lucide-react';
 import { ReceiptModal } from '../expenses/ReceiptModal';
 import { AliveGraph } from './AliveGraph';
+import { CategorySvgIcon } from '../categories/CategorySvgIcon';
 
 interface DashboardViewProps {
   expenses: Expense[];
@@ -367,9 +368,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className="py-3.5 flex items-center justify-between hover:bg-neutral-50 rounded-xl px-2 -mx-2 transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center space-x-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-lg flex-shrink-0 group-hover:scale-105 transition-transform">
-                      {emoji}
-                    </div>
+                    <CategorySvgIcon
+                      categoryName={exp.categoryName}
+                      categoryId={exp.categoryId}
+                      iconName={exp.categoryIcon}
+                      size={18}
+                      variant="black-badge"
+                      className="w-10 h-10 flex-shrink-0 group-hover:scale-105 transition-transform"
+                    />
 
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-black group-hover:underline truncate">

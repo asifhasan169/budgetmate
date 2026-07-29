@@ -2,6 +2,7 @@ import React from 'react';
 import { Category, Expense, SettlementSummary, UserProfile } from '../../types';
 import { PieChart, Download, Printer, TrendingUp, DollarSign, Calendar, FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell, Legend } from 'recharts';
+import { CategorySvgIcon } from '../categories/CategorySvgIcon';
 
 interface AnalyticsViewProps {
   expenses: Expense[];
@@ -184,6 +185,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <div key={e.id} className="py-3 flex items-center justify-between text-xs">
               <div className="flex items-center space-x-3">
                 <span className="font-mono text-slate-400 font-bold">#{idx + 1}</span>
+                <CategorySvgIcon
+                  categoryName={e.categoryName}
+                  categoryId={e.categoryId}
+                  iconName={e.categoryIcon}
+                  size={16}
+                  variant="black-badge"
+                  className="w-7 h-7 flex-shrink-0"
+                />
                 <div>
                   <span className="font-semibold text-slate-900 block">{e.title}</span>
                   <span className="text-[11px] text-slate-500">{e.categoryName} • Paid by {e.paidByUserName} on {e.date}</span>
