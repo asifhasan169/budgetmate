@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, Household } from '../../types';
-import { Wallet, Plus, Users, Sparkles, PieChart, Receipt, DollarSign, Settings, Check, ChevronDown, UserPlus, Lock, User } from 'lucide-react';
+import { Wallet, Plus, Users, Sparkles, PieChart, Receipt, DollarSign, Settings, Check, ChevronDown, UserPlus, Lock, User, LogOut } from 'lucide-react';
 import { BudgetMateLogo } from '../common/BudgetMateLogo';
 
 interface NavbarProps {
@@ -14,6 +14,7 @@ interface NavbarProps {
   household: Household;
   onOpenAddExpense: () => void;
   onOpenSettings: () => void;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,7 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddRoommateModal,
   household,
   onOpenAddExpense,
-  onOpenSettings
+  onOpenSettings,
+  onLogout
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
@@ -137,6 +139,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <UserPlus className="w-4 h-4 text-black" />
                     <span>+ Add New Roommate</span>
                   </button>
+
+                  {/* Option: Logout */}
+                  {onLogout && (
+                    <button
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center space-x-2 px-3.5 py-2.5 text-xs text-left text-red-600 font-bold hover:bg-red-50 border-t border-neutral-100 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-red-600" />
+                      <span>Log Out</span>
+                    </button>
+                  )}
 
                 </div>
               )}

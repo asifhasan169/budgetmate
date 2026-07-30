@@ -122,6 +122,17 @@ class StorageService {
     return updatedUser || users[0];
   }
 
+  public saveUser(user: UserProfile): void {
+    const users = this.getUsers();
+    const existingIndex = users.findIndex(u => u.id === user.id);
+    if (existingIndex >= 0) {
+      users[existingIndex] = { ...users[existingIndex], ...user };
+    } else {
+      users.push(user);
+    }
+    this.setItem(KEYS.USERS, users);
+  }
+
   public removeRoommate(userIdToRemove: string): void {
     const users = this.getUsers();
     const userToRemove = users.find(u => u.id === userIdToRemove);
