@@ -23,5 +23,13 @@ export const supabase = createClient(validUrl, validKey, {
 });
 
 export const isSupabaseConfigured = (): boolean => {
-  return Boolean(meta.env?.VITE_SUPABASE_URL && meta.env?.VITE_SUPABASE_ANON_KEY);
+  const url = meta.env?.VITE_SUPABASE_URL || '';
+  const key = meta.env?.VITE_SUPABASE_ANON_KEY || '';
+  return Boolean(
+    url &&
+    key &&
+    !url.includes('placeholder-project') &&
+    !key.includes('placeholder-anon-key')
+  );
 };
+

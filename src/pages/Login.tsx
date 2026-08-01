@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthLayout } from '../components/AuthLayout';
 import { authService } from '../services/authService';
-import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { Loader2, Mail, Lock, AlertCircle, Zap, Info } from 'lucide-react';
 
 interface LoginProps {
   onNavigate: (route: string) => void;
@@ -13,11 +14,12 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isConfigured = isSupabaseConfigured();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Form Validation
     if (!email.trim()) {
       setError('Email address is required.');
       return;
@@ -39,11 +41,27 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleQuickDemoLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await authService.quickDemoLogin('alex.rivers@example.com');
+      onNavigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Demo login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setError(null);
     setLoading(true);
     try {
       await authService.signInWithGoogle();
+      if (!isConfigured) {
+        onNavigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Google sign in failed.');
       setLoading(false);
@@ -57,11 +75,36 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
       onNavigateHome={() => onNavigate('/landing')}
     >
       <form onSubmit={handleLogin} className="space-y-4">
+        {!isConfigured && (
+          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start space-x-2">
+            <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-semibold block mb-0.5">Local Demo Mode Active</strong>
+              <span className="text-[11px] leading-relaxed">
+                Supabase credentials not configured yet. You can sign in with any email & password or click Quick Demo Sign In below.
+              </span>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start space-x-2">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
+        )}
+
+        {/* Quick Instant Demo Login Button */}
+        {!isConfigured && (
+          <button
+            type="button"
+            onClick={handleQuickDemoLogin}
+            disabled={loading}
+            className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-xs active:scale-[0.99] disabled:opacity-50 mb-2"
+          >
+            <Zap className="w-4 h-4 text-indigo-600 fill-indigo-500" />
+            <span>Quick Demo Sign In (Instant Access)</span>
+          </button>
         )}
 
         {/* Email Field */}

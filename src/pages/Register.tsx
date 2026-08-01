@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthLayout } from '../components/AuthLayout';
 import { authService } from '../services/authService';
-import { Loader2, Mail, Lock, User as UserIcon, AlertCircle, CheckCircle } from 'lucide-react';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { Loader2, Mail, Lock, User as UserIcon, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 interface RegisterProps {
   onNavigate: (route: string) => void;
@@ -12,10 +13,12 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const isConfigured = isSupabaseConfigured();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +51,11 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
         password,
       });
 
-      setIsSuccess(true);
+      if (!isConfigured) {
+        onNavigate('/dashboard');
+      } else {
+        setIsSuccess(true);
+      }
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -97,6 +104,18 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
       onNavigateHome={() => onNavigate('/landing')}
     >
       <form onSubmit={handleRegister} className="space-y-4">
+        {!isConfigured && (
+          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start space-x-2">
+            <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-semibold block mb-0.5">Local Demo Mode Active</strong>
+              <span className="text-[11px] leading-relaxed">
+                Supabase credentials not configured yet. Registering will immediately create your local account and sign you into the dashboard.
+              </span>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start space-x-2">
             <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
